@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple WebRTC App</title>
+</head>
+<body>
+  <h1>Simple WebRTC App</h1>
+  <video id="localVideo" autoplay playsinline style="max-width: 100%;"></video>
+  <video id="remoteVideo" autoplay playsinline style="max-width: 100%;"></video>
+  <button id="startButton">Start Call</button>
+  <button id="hangupButton" disabled>Hang Up</button>
+
+  <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.4.5.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
