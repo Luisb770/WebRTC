@@ -13,6 +13,12 @@ document.addEventListener("DOMContentLoaded", () => {
     uuid: crypto.randomUUID(),
   });
 
+  // Subscribe to PubNub channel for messages
+  pubnub.subscribe({
+    channels: ['webrtc'],
+    message: handleMessage,
+  });
+
   const servers = {
     iceServers: [
       {
@@ -65,46 +71,47 @@ document.addEventListener("DOMContentLoaded", () => {
     peerConnection.ontrack = (event) => {
       remoteVideo.srcObject = event.streams[0];
     };
-
-    // Subscribe to PubNub channel for messages
-    pubnub.subscribe({
-      channels: ['webrtc'],
-      message: handleMessage,
-    });
   });
 
   hangupButton.addEventListener('click', () => {
-    peerConnection.close();
-    localStream.getTracks().forEach(track => track.stop());
-    localVideo.srcObject = null;
-    remoteVideo.srcObject = null;
-    startButton.disabled = false;
-    hangupButton.disabled = true;
+    if (peerConnection) {
+      peerConnection.close();
+      localStream.getTracks().forEach(track => track.stop());
+      localVideo.srcObject = null;
+      remoteVideo.srcObject = null;
+      startButton.disabled = false;
+      hangupButton.disabled = true;
 
-    // Unsubscribe from PubNub channel
-    pubnub.unsubscribe({
-      channels: ['webrtc'],
-    });
+      // Unsubscribe from PubNub channel
+      pubnub.unsubscribe({
+        channels: ['webrtc'],
+      });
+
+      // Reset the peerConnection variable
+      peerConnection = null;
+    }
   });
 
   function handleMessage(message) {
-    if (message.offer) {
-      peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer))
-        .then(() => peerConnection.createAnswer())
-        .then(answer => peerConnection.setLocalDescription(answer))
-        .then(() => {
-          pubnub.publish({
-            channel: 'webrtc',
-            message: { answer: peerConnection.localDescription },
+    if (peerConnection) {
+      if (message.offer) {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer))
+          .then(() => peerConnection.createAnswer())
+          .then(answer => peerConnection.setLocalDescription(answer))
+          .then(() => {
+            pubnub.publish({
+              channel: 'webrtc',
+              message: { answer: peerConnection.localDescription },
+            });
           });
-        });
-    } else if (message.answer) {
-      peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer))
-        .then(() => {
-          // remote answer set
-        });
-    } else if (message.ice) {
-      peerConnection.addIceCandidate(new RTCIceCandidate(message.ice));
+      } else if (message.answer) {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer))
+          .then(() => {
+            // remote answer set
+          });
+      } else if (message.ice) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(message.ice));
+      }
     }
   }
 
