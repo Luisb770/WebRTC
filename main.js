@@ -30,7 +30,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     .then((stream) => {
-      console.log('Local media stream obtained:', stream);
       localStream = stream;
       localVideo.srcObject = stream;
       startButton.disabled = false;
@@ -38,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch(handleError);
 
   startButton.addEventListener('click', () => {
-    console.log('Start button clicked');
     startButton.disabled = true;
     hangupButton.disabled = false;
 
@@ -56,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return peerConnection.setLocalDescription(offer);
       })
       .then(() => {
+        console.log('Local offer set as local description');
         pubnub.publish({
           channel: 'webrtc',
           message: { offer: peerConnection.localDescription },
@@ -75,13 +74,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Listen for remote stream
     peerConnection.ontrack = (event) => {
-      console.log('Remote stream received:', event.streams[0]);
+      console.log('Received remote stream:', event.streams[0]);
       remoteVideo.srcObject = event.streams[0];
     };
   });
 
   hangupButton.addEventListener('click', () => {
-    console.log('Hangup button clicked');
     if (peerConnection) {
       peerConnection.close();
       localStream.getTracks().forEach(track => track.stop());
@@ -101,28 +99,39 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function handleMessage(message) {
+    console.log('Received message:', message);
+
     if (peerConnection) {
       if (message.offer) {
-        console.log('Remote offer received:', message.offer);
+        console.log('Received remote offer:', message.offer);
         peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer))
           .then(() => peerConnection.createAnswer())
-          .then(answer => peerConnection.setLocalDescription(answer))
-          .then(() => {
+          .then(answer => {
             console.log('Local answer created:', answer);
+            return peerConnection.setLocalDescription(answer);
+          })
+          .then(() => {
+            console.log('Local answer set as local description');
             pubnub.publish({
               channel: 'webrtc',
               message: { answer: peerConnection.localDescription },
             });
           });
       } else if (message.answer) {
-        console.log('Remote answer received:', message.answer);
+        console.log('Received remote answer:', message.answer);
         peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer))
           .then(() => {
-            // remote answer set
+            console.log('Remote answer set as remote description');
           });
       } else if (message.ice) {
-        console.log('Remote ICE candidate:', message.ice);
-        peerConnection.addIceCandidate(new RTCIceCandidate(message.ice));
+        console.log('Received remote ICE candidate:', message.ice);
+        peerConnection.addIceCandidate(new RTCIceCandidate(message.ice))
+          .then(() => {
+            console.log('Remote ICE candidate added successfully');
+          })
+          .catch(error => {
+            console.error('Error adding remote ICE candidate:', error);
+          });
       }
     }
   }
